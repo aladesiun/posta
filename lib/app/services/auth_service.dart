@@ -6,16 +6,32 @@ class AuthService {
   final ApiClient _api = Get.find<ApiClient>();
   final TokenStorage _storage = Get.find<TokenStorage>();
 
+  /// Validate the current token by making a test API call
+  Future<void> validateToken() async {
+    try {
+      // Make a simple API call to validate the token
+      // Using the posts endpoint as it requires authentication
+      await _api.dio.get('/posts', queryParameters: {'limit': 1, 'offset': 0});
+    } catch (e) {
+      print('Token validation failed: $e');
+      throw Exception('Token validation failed: $e');
+    }
+  }
+
   Future<void> login(String email, String password) async {
-    final resp = await _api.dio.post('/auth/login', data: {
-      'email': email,
-      'password': password,
-    });
-    print('login resp:');
-    print(resp.data);
-    final access = resp.data['accessToken'] as String;
-    final refresh = resp.data['refreshToken'] as String;
-    await _storage.saveTokens(accessToken: access, refreshToken: refresh);
+    try {
+      final response = await _api.dio.post('/auth/login', data: {
+        'email': email,
+        'password': password,
+      });
+
+      final access = response.data['accessToken'] as String;
+      final refresh = response.data['refreshToken'] as String;
+      await _storage.saveTokens(accessToken: access, refreshToken: refresh);
+    } catch (e) {
+      print('Login failed: ${e.toString()}');
+      throw Exception('Login failed: ${e.toString()}');
+    }
   }
 
   Future<void> register(String username, String email, String password) async {
@@ -39,37 +55,8 @@ class AuthService {
     }
   }
 
-  Future<bool> isAuthenticated() async {
-    try {
-      final accessToken = await _storage.readAccessToken();
-      if (accessToken == null) return false;
-
-      // Validate token with backend
-      await _api.dio.get('/auth/me');
-      return true;
-    } catch (e) {
-      // Token is invalid or expired
-      await _storage.clear();
-      return false;
-    }
-  }
-
-  Future<void> refreshTokens() async {
-    try {
-      final refreshToken = await _storage.readRefreshToken();
-      if (refreshToken == null) throw Exception('No refresh token');
-
-      final resp = await _api.dio.post('/auth/refresh', data: {
-        'refreshToken': refreshToken,
-      });
-
-      final access = resp.data['accessToken'] as String;
-      final refresh = resp.data['refreshToken'] as String;
-      await _storage.saveTokens(accessToken: access, refreshToken: refresh);
-    } catch (e) {
-      await _storage.clear();
-      throw Exception('Failed to refresh tokens');
-    }
+  Future<void> clearStoredData() async {
+    await _storage.clear();
   }
 }
 

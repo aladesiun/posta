@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:posta/app/controllers/post_controller.dart';
+import 'dart:io';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -232,8 +233,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
-                      child: Image.asset(
-                        _selectedImage!.path,
+                      child: Image.file(
+                        File(_selectedImage!.path),
                         width: double.infinity,
                         height: 200,
                         fit: BoxFit.cover,

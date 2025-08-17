@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:posta/app/controllers/feed_controller.dart';
+import 'package:posta/app/controllers/post_controller.dart';
 import 'package:posta/app/controllers/auth_controller.dart';
+import 'package:posta/app/routes.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:posta/app/utils/date_utils.dart' as PostaDateUtils;
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -9,6 +13,8 @@ class FeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(FeedController());
+    final postController =
+        Get.find<PostController>(); // Use find instead of put
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -28,12 +34,79 @@ class FeedScreen extends StatelessWidget {
               Get.toNamed('/create-post');
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, size: 24),
-            onPressed: () {
-              final authController = Get.find<AuthController>();
-              authController.logout();
+          PopupMenuButton<String>(
+            icon:
+                const Icon(Icons.account_circle, size: 28, color: Colors.black),
+            color: Colors.white,
+            elevation: 8,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Colors.black, width: 2),
+            ),
+            onSelected: (value) {
+              switch (value) {
+                case 'profile':
+                  Get.toNamed('/profile');
+                  break;
+                case 'settings':
+                  // TODO: Navigate to settings screen
+                  break;
+                case 'logout':
+                  final authController = Get.find<AuthController>();
+                  authController.logout();
+                  break;
+              }
             },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    const Icon(Icons.person, size: 20, color: Colors.black),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Profile',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    const Icon(Icons.settings, size: 20, color: Colors.black),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Settings',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    const Icon(Icons.logout, size: 20, color: Colors.black),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 8),
         ],
@@ -124,44 +197,65 @@ class FeedScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header with user info
+                    // Post header
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
+                          // Avatar
                           Container(
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.grey[300],
+                              shape: BoxShape.circle,
                             ),
-                            child: Center(
-                              child: Text(
-                                (user['username'] ?? 'U')[0].toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                            child: (post['User']?['avatarUrl'] != null)
+                                ? ClipOval(
+                                    child: CachedNetworkImage(
+                                      imageUrl: post['User']['avatarUrl'],
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Icon(
+                                        Icons.person,
+                                        color: Colors.grey[600],
+                                      ),
+                                      errorWidget: (context, url, error) =>
+                                          Icon(
+                                        Icons.person,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.person,
+                                    color: Colors.grey[600],
+                                  ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  user['username'] ?? 'User',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: Colors.black,
+                                GestureDetector(
+                                  onTap: () {
+                                    final username = post['User']?['username'];
+                                    if (username != null) {
+                                      Get.toNamed('/profile',
+                                          arguments: username);
+                                    }
+                                  },
+                                  child: Text(
+                                    post['User']?['username'] ?? 'User',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: Colors.black,
+                                    ),
                                   ),
                                 ),
                                 Text(
-                                  'Just now', // TODO: Add actual timestamp
+                                  PostaDateUtils.DateUtils.formatPostDate(
+                                      post['created_at'] ?? post['createdAt']),
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey[600],
@@ -198,22 +292,72 @@ class FeedScreen extends StatelessWidget {
                         ),
                       ),
 
-                    // Media placeholder (if any)
+                    // Media display (if any)
                     if (post['mediaUrl'] != null)
                       Container(
                         margin: const EdgeInsets.only(top: 12),
                         height: 200,
                         decoration: BoxDecoration(
-                          color: Colors.grey[200],
                           borderRadius: const BorderRadius.vertical(
                             bottom: Radius.circular(16),
                           ),
                         ),
-                        child: Center(
-                          child: Icon(
-                            Icons.image,
-                            size: 48,
-                            color: Colors.grey[400],
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(16),
+                          ),
+                          child: CachedNetworkImage(
+                            imageUrl: post['mediaUrl'],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: 200,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.grey[400]!,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Loading image...',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.error_outline,
+                                      size: 48,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Failed to load image',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -224,18 +368,27 @@ class FeedScreen extends StatelessWidget {
                       child: Row(
                         children: [
                           _buildActionButton(
-                            icon: Icons.favorite_border,
-                            label: '0', // TODO: Add actual like count
-                            onTap: () {
-                              // TODO: Handle like
-                            },
+                            icon: postController.isLikeLoading(post['id'])
+                                ? Icons.hourglass_empty
+                                : (post['hasLiked'] == true ||
+                                        post['hasLiked'] == 'true')
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                            label:
+                                '${post['likeCount'] ?? 0}', // Show actual like count
+                            onTap: postController.isLikeLoading(post['id'])
+                                ? null
+                                : () {
+                                    postController.toggleLike(post['id']);
+                                  },
                           ),
                           const SizedBox(width: 24),
                           _buildActionButton(
                             icon: Icons.chat_bubble_outline,
-                            label: '0', // TODO: Add actual comment count
+                            label:
+                                '${post['commentCount'] ?? 0}', // Show actual comment count
                             onTap: () {
-                              // TODO: Handle comment
+                              Get.toNamed('/comments', arguments: post);
                             },
                           ),
                           const SizedBox(width: 24),
@@ -272,8 +425,10 @@ class FeedScreen extends StatelessWidget {
   Widget _buildActionButton({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
+    final isDisabled = onTap == null;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -285,14 +440,14 @@ class FeedScreen extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: Colors.grey[700],
+              color: isDisabled ? Colors.grey[400] : Colors.grey[700],
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[700],
+                color: isDisabled ? Colors.grey[400] : Colors.grey[700],
                 fontWeight: FontWeight.w500,
               ),
             ),

@@ -2,25 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:posta/app/controllers/auth_controller.dart';
 import 'package:posta/app/routes.dart';
-import 'package:posta/app/screens/auth/register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
+    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -35,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Get.offAllNamed(AppRoutes.onboarding),
+          onPressed: () => Get.back(),
         ),
       ),
       body: SafeArea(
@@ -61,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Icon(
-                          Icons.chat_bubble_outline,
+                          Icons.person_add,
                           size: 40,
                           color: Colors.black,
                         ),
@@ -70,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Title
                       const Text(
-                        'Welcome Back',
+                        'Create Account',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
@@ -81,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       // Subtitle
                       Text(
-                        'Sign in to continue sharing your stories',
+                        'Join Posta and start sharing your stories',
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.grey[600],
@@ -93,6 +97,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 const SizedBox(height: 48),
+
+                // Username field
+                _buildTextField(
+                  controller: _usernameController,
+                  label: 'Username',
+                  hint: 'Choose a unique username',
+                  icon: Icons.person_outline,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Username is required';
+                    }
+                    if (value.trim().length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    if (value.trim().length > 20) {
+                      return 'Username must be less than 20 characters';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 20),
 
                 // Email field
                 _buildTextField(
@@ -119,7 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 _buildTextField(
                   controller: _passwordController,
                   label: 'Password',
-                  hint: 'Enter your password',
+                  hint: 'Create a strong password',
                   icon: Icons.lock_outline,
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
@@ -139,45 +165,56 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Password is required';
                     }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
                     return null;
                   },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-                // Forgot Password (optional)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      Get.snackbar(
-                        'Coming Soon',
-                        'Password reset will be available soon!',
-                        snackPosition: SnackPosition.BOTTOM,
-                        backgroundColor: Colors.black,
-                        colorText: Colors.white,
-                      );
-                    },
-                    child: Text(
-                      'Forgot Password?',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
+                // Confirm Password field
+                _buildTextField(
+                  controller: _confirmPasswordController,
+                  label: 'Confirm Password',
+                  hint: 'Confirm your password',
+                  icon: Icons.lock_outline,
+                  obscureText: _obscureConfirmPassword,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                      color: Colors.grey[600],
                     ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
                 ),
 
                 const SizedBox(height: 32),
 
-                // Login button
+                // Register button
                 SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: Obx(() {
                     final loading = controller.isLoading.value;
                     return ElevatedButton(
-                      onPressed: loading ? null : _handleLogin,
+                      onPressed: loading ? null : _handleRegister,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
@@ -197,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             )
                           : const Text(
-                              'Sign In',
+                              'Create Account',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
@@ -207,96 +244,49 @@ class _LoginScreenState extends State<LoginScreen> {
                   }),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
-                // Divider
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(
-                        color: Colors.grey[300],
-                        thickness: 1,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'or',
+                // Login link
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
                         style: TextStyle(
-                          color: Colors.grey[500],
-                          fontSize: 14,
+                          color: Colors.grey[600],
+                          fontSize: 16,
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Divider(
-                        color: Colors.grey[300],
-                        thickness: 1,
+                      TextButton(
+                        onPressed: () {
+                          Get.offAllNamed(AppRoutes.login);
+                        },
+                        child: const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 32),
-
-                // Register button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Get.toNamed(AppRoutes.register);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                      side: const BorderSide(color: Colors.black, width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      'Create New Account',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    ],
                   ),
                 ),
 
                 const SizedBox(height: 24),
 
-                // Learn More button
+                // Terms and Privacy
                 Center(
-                  child: TextButton(
-                    onPressed: () {
-                      Get.offAllNamed(AppRoutes.onboarding);
-                    },
-                    child: Text(
-                      'Learn More About Posta',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
-                      ),
+                  child: Text(
+                    'By creating an account, you agree to our Terms of Service and Privacy Policy',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 12,
+                      height: 1.4,
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Clear stored data button (for debugging)
-                Center(
-                  child: TextButton(
-                    onPressed: () async {
-                      await controller.clearStoredData();
-                    },
-                    child: Text(
-                      'Clear Stored Data',
-                      style: TextStyle(
-                        color: Colors.red[400],
-                        fontSize: 14,
-                      ),
-                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -378,10 +368,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _handleLogin() {
+  void _handleRegister() {
     if (_formKey.currentState!.validate()) {
       final controller = Get.find<AuthController>();
-      controller.login(
+      controller.register(
+        _usernameController.text,
         _emailController.text,
         _passwordController.text,
       );

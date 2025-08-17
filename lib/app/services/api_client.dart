@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:dio/dio.dart';
 import 'package:get/get.dart';
 import 'package:posta/app/config.dart';
@@ -9,12 +7,12 @@ class ApiClient {
   final Dio _dio;
   final TokenStorage _tokenStorage;
   bool _isRefreshing = false;
-  final List<Completer<void>> _refreshWaiters = [];
 
   ApiClient(this._dio, this._tokenStorage) {
     _dio.options.baseUrl = AppConfig.baseUrl;
     _dio.options.connectTimeout = const Duration(seconds: 10);
     _dio.options.receiveTimeout = const Duration(seconds: 20);
+
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _tokenStorage.readAccessToken();
@@ -23,47 +21,54 @@ class ApiClient {
         }
         handler.next(options);
       },
-      onError: (e, handler) async {
-        if (e.response?.statusCode == 401) {
+      onError: (error, handler) async {
+        if (error.response?.statusCode == 401 && !_isRefreshing) {
+          _isRefreshing = true;
+
           try {
-            await _handleTokenRefresh();
-            final newToken = await _tokenStorage.readAccessToken();
-            if (newToken != null) {
-              final req = e.requestOptions;
-              req.headers['Authorization'] = 'Bearer $newToken';
-              final cloned = await _dio.fetch(req);
-              return handler.resolve(cloned);
+            // Try to refresh the token
+            final refreshToken = await _tokenStorage.readRefreshToken();
+            if (refreshToken != null) {
+              await _refreshToken(refreshToken);
+
+              // Retry the original request with new token
+              final newToken = await _tokenStorage.readAccessToken();
+              if (newToken != null) {
+                error.requestOptions.headers['Authorization'] =
+                    'Bearer $newToken';
+                final response = await _dio.fetch(error.requestOptions);
+                handler.resolve(response);
+                return;
+              }
             }
-          } catch (_) {}
+          } catch (e) {
+            print('Token refresh failed: $e');
+            // Clear tokens and redirect to login
+            await _tokenStorage.clear();
+            Get.offAllNamed('/onboarding');
+          } finally {
+            _isRefreshing = false;
+          }
         }
-        handler.next(e);
+
+        handler.next(error);
       },
     ));
   }
 
-  Future<void> _handleTokenRefresh() async {
-    if (_isRefreshing) {
-      final waiter = Completer<void>();
-      _refreshWaiters.add(waiter);
-      return waiter.future;
-    }
-    _isRefreshing = true;
+  Future<void> _refreshToken(String refreshToken) async {
     try {
-      final refresh = await _tokenStorage.readRefreshToken();
-      if (refresh == null) throw Exception('No refresh token');
-      final resp =
-          await _dio.post('/auth/refresh', data: {'refreshToken': refresh});
-      final accessToken = resp.data['accessToken'] as String?;
-      final refreshToken = resp.data['refreshToken'] as String? ?? refresh;
-      if (accessToken == null) throw Exception('No access token in refresh');
+      final response = await _dio.post('/auth/refresh', data: {
+        'refreshToken': refreshToken,
+      });
+
+      final access = response.data['accessToken'] as String;
+      final refresh = response.data['refreshToken'] as String;
       await _tokenStorage.saveTokens(
-          accessToken: accessToken, refreshToken: refreshToken);
-    } finally {
-      _isRefreshing = false;
-      for (final c in _refreshWaiters) {
-        c.complete();
-      }
-      _refreshWaiters.clear();
+          accessToken: access, refreshToken: refresh);
+    } catch (e) {
+      print('Failed to refresh token: $e');
+      throw Exception('Token refresh failed');
     }
   }
 

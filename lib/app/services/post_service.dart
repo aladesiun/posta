@@ -1,7 +1,9 @@
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide FormData, MultipartFile;
 import 'package:image_picker/image_picker.dart';
 import 'package:posta/app/services/api_client.dart';
 import 'package:posta/app/controllers/post_controller.dart';
+import 'package:dio/dio.dart';
+import 'dart:io';
 
 class PostService {
   final ApiClient _apiClient = Get.find<ApiClient>();
@@ -11,22 +13,35 @@ class PostService {
     XFile? imageFile,
   }) async {
     try {
-      // TODO: Implement actual API call to create post
-      // For now, just simulate the API call
-      await Future.delayed(const Duration(seconds: 2));
+      // Create FormData for multipart upload using Dio
+      final formData = FormData.fromMap({
+        'text': text,
+      });
 
-      // TODO: Upload image to Cloudinary if provided
       if (imageFile != null) {
-        // TODO: Implement Cloudinary upload
-        await Future.delayed(const Duration(seconds: 1));
+        final file = File(imageFile.path);
+        formData.files.add(MapEntry(
+          'image',
+          await MultipartFile.fromFile(
+            file.path,
+            filename: 'posta_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          ),
+        ));
       }
 
-      // TODO: Send post data to backend
-      // final response = await _apiClient.post('/posts', data: {
-      //   'text': text,
-      //   'mediaUrl': imageUrl, // if image was uploaded
-      // });
+      // Send post data to backend (backend handles Cloudinary upload)
+      final response = await _apiClient.dio.post(
+        '/posts',
+        data: formData,
+      );
+
+      if (response.statusCode != 201 && response.statusCode != 200) {
+        throw Exception('Failed to create post: ${response.statusMessage}');
+      }
+
+      print('Post created successfully: ${response.data}');
     } catch (e) {
+      print('Error creating post: $e');
       throw Exception('Failed to create post: $e');
     }
   }

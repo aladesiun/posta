@@ -6,7 +6,11 @@ import 'package:posta/app/services/api_client.dart';
 import 'package:posta/app/services/auth_service.dart';
 import 'package:posta/app/services/feed_service.dart';
 import 'package:posta/app/services/post_service.dart';
+import 'package:posta/app/services/like_service.dart';
+import 'package:posta/app/services/profile_service.dart';
 import 'package:posta/app/controllers/auth_controller.dart';
+import 'package:posta/app/controllers/post_controller.dart';
+import 'package:posta/app/services/image_upload_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,18 +27,28 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       initialBinding: BindingsBuilder(() {
-        // Initialize core services
-        ApiBinding().dependencies();
-        AuthBinding().dependencies();
-        FeedBinding().dependencies();
-        PostBinding().dependencies();
+        try {
+          // Initialize core services first
+          ApiBinding().dependencies();
+          AuthBinding().dependencies();
+          FeedBinding().dependencies();
+          PostBinding().dependencies();
+          LikeBinding().dependencies();
+          ImageUploadBinding()
+              .dependencies(); // Move this before ProfileBinding
+          ProfileBinding().dependencies();
+
+          // Initialize controllers
+          Get.put(AuthController());
+          Get.put(PostController());
+        } catch (e) {
+          print('Error during app initialization: $e');
+        }
       }),
       onInit: () {
-        // Check authentication status on app startup
-        final authController = Get.find<AuthController>();
-        authController.checkAuthStatus();
+        // Authentication check moved to initialBinding
       },
-      initialRoute: AppRoutes.login,
+      initialRoute: AppRoutes.splash,
       getPages: AppRoutes.pages,
     );
   }
